@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title>Auto-complete examples</title>
     <meta charset="utf-8" />
@@ -49,7 +49,7 @@
         <ul id="items-popup"></ul>
         <!-- For built-in screen-reader announcements:
           - Note the ID is the same as the <ul> with "feedback" appended
-          - Also note that aria attributes will be added programmatically if they aren't set correctly  
+          - Also note that aria attributes will be added programmatically if they aren't set correctly
         -->
         <div id="items-popup-feedback" class="sr-only"></div>
       </auto-complete>
@@ -67,7 +67,7 @@
         <ul id="items-a-popup"></ul>
         <!-- For built-in screen-reader announcements:
           - Note the ID is the same as the <ul> with "feedback" appended
-          - Also note that aria attributes will be added programmatically if they aren't set correctly  
+          - Also note that aria attributes will be added programmatically if they aren't set correctly
         -->
         <div id="items-a-popup-feedback" class="sr-only"></div>
       </auto-complete>
@@ -88,8 +88,14 @@
     <!-- example with a custom fetching result method -->
     <form>
       <label id="custom-fetching-robots-label" for="custom-fetching-robot">Custom Fetching Robots</label>
-      <auto-complete id="custom-fetching-method" src="/demo" for="custom-fetching-items-popup" aria-labelledby="custom-fetching-robots-label" data-autoselect="true">
-        <input name="custom-fetching-robot" type="text" aria-labelledby="custom-fetching-robots-label" autofocus>
+      <auto-complete
+        id="custom-fetching-method"
+        src="/demo"
+        for="custom-fetching-items-popup"
+        aria-labelledby="custom-fetching-robots-label"
+        data-autoselect="true"
+      >
+        <input name="custom-fetching-robot" type="text" aria-labelledby="custom-fetching-robots-label" autofocus />
         <ul id="custom-fetching-items-popup"></ul>
         <div id="custom-fetching-items-popup-feedback" class="sr-only"></div>
       </auto-complete>
@@ -101,7 +107,19 @@
       document.querySelector("auto-complete#custom-fetching-method").fetchResult = async (el, url) => (await fetch(url)).text();
     </script>
 
+    <form>
+      <label id="fetch-on-empty-robots-label" for="fetch-on-empty-robot">Fetch on empty Robots</label>
+      <!-- To enable fetch on empty use fetch-on-empty attribute -->
+      <auto-complete src="/demo" for="fetch-on-empty-items-popup" aria-labelledby="fetch-on-empty-robots-label" fetch-on-empty>
+        <input name="fetch-on-empty-robot" type="text" aria-labelledby="fetch-on-empty-robots-label" autofocus />
+        <button id="fetch-on-empty-robot-clear">x</button>
+        <ul id="fetch-on-empty-items-popup"></ul>
+        <div id="fetch-on-empty-items-popup-feedback" class="sr-only"></div>
+      </auto-complete>
+      <button type="submit">Save</button>
+    </form>
+
 <!--    <script type="module" src="./dist/bundle.js"></script>-->
-    <script type="module" src="https://unpkg.com/@github/auto-complete-element@latest/dist/bundle.js"></script>
+        <script type="module" src="https://unpkg.com/@github/auto-complete-element@latest/dist/bundle.js"></script>
   </body>
 </html>

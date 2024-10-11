@@ -22,15 +22,17 @@ export default class Autocomplete {
     container: AutocompleteElement,
     input: HTMLInputElement,
     results: HTMLElement,
-    autoselectEnabled = false
+    autoselectEnabled = false,
   ) {
     this.container = container
     this.input = input
     this.results = results
-    this.combobox = new Combobox(input, results)
-    this.feedback = document.getElementById(`${this.results.id}-feedback`)
+    this.combobox = new Combobox(input, results, {
+      defaultFirstOption: autoselectEnabled,
+    })
+    this.feedback = (container.getRootNode() as Document).getElementById(`${this.results.id}-feedback`)
     this.autoselectEnabled = autoselectEnabled
-    this.clearButton = document.getElementById(`${this.input.id || this.input.name}-clear`)
+    this.clearButton = (container.getRootNode() as Document).getElementById(`${this.input.id || this.input.name}-clear`)
 
     // check to see if there are any default options provided
     this.clientOptions = results.querySelectorAll('[role=option]')
@@ -53,9 +55,19 @@ export default class Autocomplete {
       this.input.setAttribute('aria-expanded', 'false')
     }
 
-    this.results.hidden = true
+    if (this.results.popover) {
+      if (this.results.matches(':popover-open')) {
+        this.results.hidePopover()
+      }
+    } else {
+      this.results.hidden = true
+    }
+
     // @jscholes recommends a generic "results" label as the results are already related to the combobox, which is properly labelled
-    this.results.setAttribute('aria-label', 'results')
+    if (!this.results.getAttribute('aria-label')) {
+      this.results.setAttribute('aria-label', 'results')
+    }
+
     this.input.setAttribute('autocomplete', 'off')
     this.input.setAttribute('spellcheck', 'false')
 
@@ -100,53 +112,40 @@ export default class Autocomplete {
     this.container.value = ''
     this.input.focus()
     this.input.dispatchEvent(new Event('change'))
-    this.container.open = false
+    this.close()
   }
 
   onKeydown(event: KeyboardEvent): void {
-    // if autoselect is enabled, Enter key will select the first option
-    if (event.key === 'Enter' && this.container.open && this.autoselectEnabled) {
-      const firstOption = this.results.children[0]
-      if (firstOption) {
-        event.stopPropagation()
-        event.preventDefault()
-
-        this.onCommit({target: firstOption})
-      }
-    }
-
     if (event.key === 'Escape' && this.container.open) {
-      this.container.open = false
+      this.close()
       event.stopPropagation()
       event.preventDefault()
     } else if (event.altKey && event.key === 'ArrowUp' && this.container.open) {
-      this.container.open = false
+      this.close()
       event.stopPropagation()
       event.preventDefault()
     } else if (event.altKey && event.key === 'ArrowDown' && !this.container.open) {
       if (!this.input.value.trim()) return
-      this.container.open = true
+      this.open()
       event.stopPropagation()
       event.preventDefault()
     }
   }
 
   onInputFocus(): void {
+    if (this.interactingWithList) return
     this.fetchResults()
   }
 
   onInputBlur(): void {
-    if (this.interactingWithList) {
-      this.interactingWithList = false
-      return
-    }
-    this.container.open = false
+    if (this.interactingWithList) return
+    this.close()
   }
 
   onCommit({target}: Pick<Event, 'target'>): void {
     const selected = target
     if (!(selected instanceof HTMLElement)) return
-    this.container.open = false
+    this.close()
     if (selected instanceof HTMLAnchorElement) return
     const value = selected.getAttribute('data-autocomplete-value') || selected.textContent!
     this.updateFeedbackForScreenReaders(`${selected.textContent || ''} selected.`)
@@ -187,8 +186,8 @@ export default class Autocomplete {
 
   fetchResults(): void {
     const query = this.input.value.trim()
-    if (!query) {
-      this.container.open = false
+    if (!query && !this.container.fetchOnEmpty) {
+      this.close()
       return
     }
 
@@ -202,11 +201,13 @@ export default class Autocomplete {
 
     this.container.dispatchEvent(new CustomEvent('loadstart'))
     this.container
-      .fetchResult(this.input, url.toString())
+      .fetchResult(url)
+      // eslint-disable-next-line github/no-then
       .then(html => {
         // eslint-disable-next-line github/no-inner-html
-        this.results.innerHTML = html
+        this.results.innerHTML = html as string
         this.identifyOptions()
+        this.combobox.indicateDefaultOption()
         const allNewOptions = this.results.querySelectorAll('[role="option"]')
         const hasResults = !!allNewOptions.length
         const numOptions = allNewOptions.length
@@ -216,16 +217,17 @@ export default class Autocomplete {
         if (this.autoselectEnabled && firstOptionValue) {
           // inform SR users of which element is "on-deck" so that it's clear what Enter will do
           this.updateFeedbackForScreenReaders(
-            `${numOptions} results. ${firstOptionValue} is the top result: Press Enter to activate.`
+            `${numOptions} results. ${firstOptionValue} is the top result: Press Enter to activate.`,
           )
         } else {
           this.updateFeedbackForScreenReaders(`${numOptions || 'No'} results.`)
         }
 
-        this.container.open = hasResults
+        hasResults ? this.open() : this.close()
         this.container.dispatchEvent(new CustomEvent('load'))
         this.container.dispatchEvent(new CustomEvent('loadend'))
       })
+      // eslint-disable-next-line github/no-then
       .catch(() => {
         this.container.dispatchEvent(new CustomEvent('error'))
         this.container.dispatchEvent(new CustomEvent('loadend'))
@@ -233,14 +235,30 @@ export default class Autocomplete {
   }
 
   open(): void {
-    if (!this.results.hidden) return
-    this.combobox.start()
-    this.results.hidden = false
+    const isHidden = this.results.popover ? !this.results.matches(':popover-open') : this.results.hidden
+    if (isHidden) {
+      this.combobox.start()
+      if (this.results.popover) {
+        this.results.showPopover()
+      } else {
+        this.results.hidden = false
+      }
+    }
+    this.container.open = true
+    this.interactingWithList = true
   }
 
   close(): void {
-    if (this.results.hidden) return
-    this.combobox.stop()
-    this.results.hidden = true
+    const isVisible = this.results.popover ? this.results.matches(':popover-open') : !this.results.hidden
+    if (isVisible) {
+      this.combobox.stop()
+      if (this.results.popover) {
+        this.results.hidePopover()
+      } else {
+        this.results.hidden = true
+      }
+    }
+    this.container.open = false
+    this.interactingWithList = false
   }
 }

@@ -1,3 +1,5 @@
-import AutocompleteElement from './auto-complete-element.js'
-export {AutocompleteElement as default}
-export {default as AutocompleteEvent} from './auto-complete-event.js'
+import {AutoCompleteElement} from './auto-complete-element-define.js'
+
+export {AutoCompleteElement}
+export default AutoCompleteElement
+export * from './auto-complete-element-define.js'
